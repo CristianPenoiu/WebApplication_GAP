@@ -1,1 +1,3 @@
-# P7-T1-PenoiuMitriMItrica
+Penoiu Gheorghe Cristian
+Mitri Stefan Denis
+Mitrica Alexandru Marius
