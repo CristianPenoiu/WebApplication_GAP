@@ -1,0 +1,173 @@
+Lab 2a
+
+#include "mpi.h"
+#include <stdio.h>
+#include <math.h>
+#include <iostream>
+using namespace std;
+#define MAXSIZE 100
+int main(int argc, char** argv)
+{
+	int myid, numprocs;
+	int data[MAXSIZE], i, x, low, high;
+	int y = 7;//elem de cautat
+
+	//poz maxima a elementului de cautat in bucatica
+	//de vector atribuita procesului crt
+	int max_poz_partial = -1;
+
+	//poz maxima a elementului de cautat in tot vectorul
+	int max_poz_absolut = -1;
+
+	MPI_Init(&argc, &argv);
+
+	//in numprocs se salveaza nr de procese
+	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+
+	//in myid se salveaza rangul procesului crt
+	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+
+	//daca avem de-a face cu procesul 0
+	if (0 == myid) 
+	{
+		//se initializeaza vect
+		for (i = 0; i < MAXSIZE; i++)
+		{
+			data[i] = i % 15;
+		}
+	}
+	
+	//se trimite intregul vect tuturor proceselor
+	MPI_Bcast(data, MAXSIZE, MPI_INT, 0, MPI_COMM_WORLD);
+
+	//x este nr de elem atribuite fiecarui proces = dimens vect / nr procese
+	x = MAXSIZE / numprocs;//x e nr intreg
+
+	//low este indexul inferior al bucaticii de vect al procesului crt
+	low = myid * x;
+	//low este indexul superior al bucaticii de vect al procesului crt
+	high = low + x;
+
+	//se cauta y in cadrul bucaticii crt
+	for (i = low; i < high; i++) {
+		if (data[i] == y)
+		{
+			max_poz_partial = i;
+		}
+	}
+
+	//se afiseaza poz maxima in cadrul vect crt
+	//sau -1, in cazul in care y nu s-a gasit in acea bucatica
+	printf("I got %d from %d\n", max_poz_partial, myid);
+	
+	//se trimit maximele partiale catre p0 si se calculeaza maximul absolut
+	MPI_Reduce(&max_poz_partial, &max_poz_absolut, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
+
+	//se afiseaza maximul global al pozitiilor
+	if (0 == myid) {
+		printf("The maximum position is %d.\n", max_poz_absolut);
+	}
+
+	MPI_Finalize();
+}
+Lab 2b
+
+#include "mpi.h"
+#include <stdio.h>
+#include <math.h>
+#include <iostream>
+using namespace std;
+#define MAXSIZE 100
+int main(int argc, char** argv)
+{
+	int myid, numprocs;
+	int data[MAXSIZE], i;
+	int data2[MAXSIZE];
+	int data3[MAXSIZE];
+	int y = 7;//elem de cautat
+
+	MPI_Init(&argc, &argv);
+
+	//in numprocs se salveaza nr de procese
+	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+
+	//in myid se salveaza rangul procesului crt
+	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+
+	//daca avem de-a face cu procesul 0
+	if (0 == myid)
+	{
+		//se initializeaza vect
+		for (i = 0; i < MAXSIZE; i++)
+		{
+			data[i] = i % 15;
+		}
+	}
+
+	//calc nr de elem de care se va ocupa fiecare proces
+	int x = MAXSIZE / numprocs;
+
+	//trimitem cate o bucatica de x elem catre toate procesele
+	//aceasta bucatica va fi salvata in data2
+	MPI_Scatter(&data, x, MPI_INT, &data2, x, MPI_INT, 0, MPI_COMM_WORLD);
+
+
+	//poz este vectorul de pozitii ale lui y in cadrul vectorului initial (data)
+	//dar este propriu fiecarui proces
+	//adica poz al procesului crt va retine doar pozitiile lui y in cadrul bucaticii coresp
+	int poz[MAXSIZE];
+
+	//acest vect va fi initializat pt primii x indecsi cu -1
+	//cu semnificatia ca nu s-a gasit inca y
+	for (i = 0; i < x; i++)
+	{
+		poz[i] = -1;
+	}
+
+	//k retine pozitia crt in cadrul lui poz
+	int k = 0;
+
+	//cautam in bucatica elem y
+	//si ii salvam pozitia in poz
+	for (i = 0; i < x; i++)
+	{
+		if (data2[i] == y)
+		{
+			poz[k] = myid * x + i;
+			k++;
+		}
+	}
+
+	
+	//trimitem pozitiile gasite catre procesul 0, care este MASTER
+	//aceste pozitii vor fi salvate in data3
+	MPI_Gather(&poz, x, MPI_INT, &data3, x, MPI_INT, 0, MPI_COMM_WORLD);
+
+	//daca procesul crt este p0
+	if (myid == 0)
+	{
+		//ok este fol pt a vedea daca y s-a gasit in vect initial
+		//ok este initial false
+		//adica pres ca y nu se gaseste in data
+		bool ok = false;
+		for (i = 0; i < 100; i++)
+		{
+			//daca pozitia e dif de -1, inseamna ca y a fost gasit
+			//si se va afisa pozitia
+			//iar ok va deveni true
+			if (data3[i] != -1)
+			{
+				cout << data3[i] << " ";
+				ok = true;
+			}
+		}
+		
+		//daca ok = false => y nu s-a gasit in data
+		if (ok = false)
+		{
+			cout << y << " nu se gaseste in vector";
+		}
+	}
+
+	MPI_Finalize();
+}
